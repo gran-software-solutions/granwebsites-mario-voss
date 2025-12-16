@@ -588,6 +588,19 @@
                 }
             }
 
+            // Hardcoded version of the openingHoursSpecification from ld+json
+            const weeklyOpeningHours = [
+                { day: "Monday", opens: "08:00", closes: "11:00" },
+                { day: "Monday", opens: "15:00", closes: "18:00" },
+                { day: "Tuesday", opens: "08:00", closes: "11:00" },
+                { day: "Wednesday", opens: "08:00", closes: "11:00" },
+                { day: "Thursday", opens: "08:00", closes: "11:00" },
+                { day: "Thursday", opens: "15:00", closes: "18:00" },
+                { day: "Friday", opens: "08:00", closes: "11:00" }
+            ];
+
+            const dayMap = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
             function updateOpeningStatus(isHoliday) {
                 const desktopEl = document.getElementById('opening-status-desktop');
                 const mobileEl = document.getElementById('opening-status-mobile');
@@ -611,12 +624,21 @@
                     mobileEl.innerHTML = closedContent;
                 } else {
                     // It's a weekday and not a holiday.
+                    const todayDayName = dayMap[today.getDay()];
+                    const todaysHours = weeklyOpeningHours.filter(spec => spec.day === todayDayName);
+
+                    let hoursString = '';
+                    if (todaysHours.length > 0) {
+                        hoursString = todaysHours.map(slot => `${slot.opens} – ${slot.closes}`).join(' & ');
+                        hoursString = ` (${hoursString})`;
+                    }
+
                     const openContent = `
                         <span class="relative flex h-2 w-2">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-medical-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-medical-500"></span>
                         </span>
-                        Praxis ist heute offen
+                        Praxis ist heute offen${hoursString}
                     `;
                     desktopEl.className = "flex items-center gap-2 text-medical-400 font-medium";
                     desktopEl.innerHTML = openContent;
