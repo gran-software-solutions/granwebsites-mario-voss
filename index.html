@@ -90,6 +90,11 @@
 </head>
 <body class="text-slate-600 bg-white antialiased selection:bg-medical-100 selection:text-medical-900 flex flex-col min-h-screen">
 
+    <!-- Mobile Opening Status -->
+    <div class="lg:hidden bg-slate-800 text-white py-2 text-center text-sm">
+        <span id="opening-status-mobile"></span>
+    </div>
+
     <!-- Top Bar (Desktop) -->
     <div class="hidden lg:block bg-slate-900 text-slate-300 py-2.5 text-sm border-b border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
@@ -104,7 +109,7 @@
                 </a>
             </div>
             <div class="flex items-center gap-4">
-                <span class="flex items-center gap-2 text-medical-400 font-medium">
+                <span id="opening-status-desktop" class="flex items-center gap-2 text-medical-400 font-medium">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-medical-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-medical-500"></span>
@@ -503,19 +508,21 @@
             const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHla-oLz_4uwqLwDJY-y2DuZdA2Ipkq-QahCAWU1U9w-VwK8oRdtMO8Dc_T19Rt5u9jtkURtaPVQkn/pub?gid=0&single=true&output=csv';
 
             document.addEventListener('DOMContentLoaded', () => {
-                fetchHolidays();
+                fetchHolidaysAndSetStatus();
             });
 
-            async function fetchHolidays() {
+            async function fetchHolidaysAndSetStatus() {
                 const container = document.getElementById('holiday-container');
                 const list = document.getElementById('holiday-list');
                 const loader = document.getElementById('holiday-loader');
-
+                
                 // Show container to avoid layout shift later (optional)
                 container.classList.remove('hidden');
 
+                let isClosedForHoliday = false;
+
                 try {
-                    // Fetch the CSV data (Using DEMO_URL for now. Switch to SHEET_URL when ready)
+                    // Fetch the CSV data
                     // We add a timestamp to the URL to prevent browser caching of old data
                     const response = await fetch(SHEET_URL + '&t=' + Date.now());
                     const data = await response.text();
@@ -540,6 +547,11 @@
                         // Convert German Date (DD.MM.YYYY) to JS Date Object
                         const startDate = parseGermanDate(startStr);
                         const endDate = parseGermanDate(endStr);
+                        
+                        // Check if today falls within a holiday period
+                        if (today >= startDate && today <= endDate) {
+                            isClosedForHoliday = true;
+                        }
 
                         // Logic: Show if End Date is today or in the future
                         if (endDate >= today) {
@@ -547,7 +559,7 @@
                         }
                     });
 
-                    // Render
+                    // Render Holiday List
                     loader.classList.add('hidden');
 
                     if (activeHolidays.length > 0) {
@@ -562,12 +574,55 @@
                         // No holidays found
                         container.classList.add('hidden');
                     }
+                    
+                    // Update the top bar status indicator
+                    updateOpeningStatus(isClosedForHoliday);
 
                 } catch (error) {
                     console.error('Error loading holidays:', error);
                     loader.textContent = 'Fehler beim Laden der Zeiten.';
                     // Hide container on error so we don't show a broken box
                     setTimeout(() => container.classList.add('hidden'), 2000);
+                    // If fetching fails, assume open to be safe and show default state
+                    updateOpeningStatus(false);
+                }
+            }
+
+            function updateOpeningStatus(isHoliday) {
+                const desktopEl = document.getElementById('opening-status-desktop');
+                const mobileEl = document.getElementById('opening-status-mobile');
+                if (!desktopEl || !mobileEl) return;
+
+                const today = new Date();
+                const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+                if (isHoliday || isWeekend) {
+                    const closedContent = `
+                        <span class="relative flex h-2 w-2">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                        Praxis ist heute geschlossen
+                    `;
+                    desktopEl.className = "flex items-center gap-2 text-red-500 font-medium";
+                    desktopEl.innerHTML = closedContent;
+
+                    mobileEl.className = "flex items-center justify-center gap-2 font-medium text-red-400";
+                    mobileEl.innerHTML = closedContent;
+                } else {
+                    // It's a weekday and not a holiday.
+                    const openContent = `
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-medical-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-medical-500"></span>
+                        </span>
+                        Praxis ist heute offen
+                    `;
+                    desktopEl.className = "flex items-center gap-2 text-medical-400 font-medium";
+                    desktopEl.innerHTML = openContent;
+                    
+                    mobileEl.className = "flex items-center justify-center gap-2 font-medium text-medical-400";
+                    mobileEl.innerHTML = openContent;
                 }
             }
 
